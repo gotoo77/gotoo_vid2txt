@@ -19,9 +19,11 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: Ensure lockfile is committed
-        run: cargo metadata --locked --format-version 1 --no-deps
+        run: python -c "from pathlib import Path; assert Path('Cargo.lock').is_file(), 'Cargo.lock must be committed'"
       - name: Format
         run: cargo fmt --all -- --check
+      - name: Type check
+        run: cargo check --locked --all-targets
       - name: Unit and injected integration tests
         run: cargo test --locked --all-targets
       - name: Clippy (block warnings)

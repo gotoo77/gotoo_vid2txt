@@ -60,7 +60,15 @@ export TMPDIR="$root/temp"
 export MOCK_YT_ARGS="$root/yt-args.log"
 common=(--model "$root/model.bin" --ffmpeg-bin "$root/bin/ffmpeg-mock" --whisper-bin "$root/bin/whisper-mock" --yt-dlp-bin "$root/bin/yt-dlp-mock")
 run() { "$BIN" transcribe "$@" > "$root/stdout.log" 2> "$root/stderr.log"; }
-assert_equals() { [[ "$(cat "$1")" == "$2" ]] || { echo "FAIL: $3" >&2; exit 1; }; echo "PASS: $3"; }
+assert_equals() {
+  local actual
+  actual="$(cat "$1")" || { echo "FAIL: $3 (missing output file: $1)" >&2; exit 1; }
+  if [[ "$actual" != "$2" ]]; then
+    printf 'FAIL: %s (expected %q, got %q)\n' "$3" "$2" "$actual" >&2
+    exit 1
+  fi
+  echo "PASS: $3"
+}
 run "$root/video.mp4" "${common[@]}" --output "$root/local.txt" --audio-out "$root/audio.wav"
 assert_equals "$root/local.txt" 'Bonjour de la simulation.' 'local transcription'
 assert_equals "$root/audio.wav" 'WAV test' 'local WAV'

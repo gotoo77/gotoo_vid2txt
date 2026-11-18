@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use gotoo_vid2txt::domain::{Segment, Transcript};
+use std::hint::black_box;
 
 fn bench_json_serialization(c: &mut Criterion) {
     let mut transcript = Transcript::new("fake", Some("fr".into()), "sample".repeat(1000));

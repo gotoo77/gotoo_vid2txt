@@ -4,9 +4,9 @@ use gotoo_vid2txt::{
     domain::{Job, Source},
     export::{Exporter, Json, PlainText},
     output::{write_transcript, OutputTargets},
-    youtube_captions::{is_youtube_url, try_transcript},
     pipeline::StageTimings,
     registry::{build, validate_source},
+    youtube_captions::{is_youtube_url, try_transcript},
     Result,
 };
 use std::{
@@ -221,7 +221,9 @@ fn transcribe(args: TranscribeArgs) -> Result<()> {
             || !is_youtube_url(&args.input)
             || args.audio_out.is_some())
     {
-        return Err("--transcript-source youtube requires a YouTube URL without --audio-out".into());
+        return Err(
+            "--transcript-source youtube requires a YouTube URL without --audio-out".into(),
+        );
     }
     let captions_first = args.transcript_source != TranscriptSource::Whisper
         && args.audio_out.is_none()
@@ -229,14 +231,18 @@ fn transcribe(args: TranscribeArgs) -> Result<()> {
         && is_youtube_url(&args.input);
     if captions_first {
         // Preflight output safety before any external command, even with no model.
-        let protected: Vec<&Path> = config.backends.whisper_cpp.model.as_deref().into_iter().collect();
+        let protected: Vec<&Path> = config
+            .backends
+            .whisper_cpp
+            .model
+            .as_deref()
+            .into_iter()
+            .collect();
         let targets = OutputTargets::prepare(&output, None, args.force, &protected)?;
         let started = Instant::now();
-        if let Some(transcript) = try_transcript(
-            &config.backends.yt_dlp.binary,
-            &args.input,
-            &args.language,
-        )? {
+        if let Some(transcript) =
+            try_transcript(&config.backends.yt_dlp.binary, &args.input, &args.language)?
+        {
             let bytes = match p.exporter {
                 ExportBackend::Txt => PlainText.render(&transcript)?,
                 ExportBackend::Json => Json.render(&transcript)?,

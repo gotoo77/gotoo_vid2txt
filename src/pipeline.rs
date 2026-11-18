@@ -8,7 +8,10 @@ use crate::{
     transcription::Transcriber,
     Result,
 };
-use std::{path::Path, time::{Duration, Instant}};
+use std::{
+    path::Path,
+    time::{Duration, Instant},
+};
 
 // Do not rely on the caller's umask: tempfile defaults to 0o777 for directories.
 fn private_workspace() -> Result<tempfile::TempDir> {
@@ -91,9 +94,9 @@ impl<A: Acquisition, D: AudioDecoder, T: Transcriber, E: Exporter> Pipeline<A, D
         let decoding = start.elapsed();
 
         let start = Instant::now();
-        let transcript = self.transcriber.transcribe(
-            &wav, &job.language, scratch.path(),
-        )?;
+        let transcript = self
+            .transcriber
+            .transcribe(&wav, &job.language, scratch.path())?;
         let transcription = start.elapsed();
         if transcript.schema_version != 1 || transcript.backend != self.transcriber.id() {
             return Err("transcriber returned an incompatible result".into());

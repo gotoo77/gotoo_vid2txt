@@ -1,13 +1,23 @@
 //! Output publication. A file is staged beside its target before publication.
 //! Two requested outputs are NOT a single atomic transaction.
 use crate::Result;
-use std::{fs, io::{self, Write}, path::{Path, PathBuf}};
+use std::{
+    fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
+};
 use tempfile::NamedTempFile;
 
 fn normalized_target(path: &Path) -> Result<PathBuf> {
-    let absolute = if path.is_absolute() { path.to_path_buf() } else { std::env::current_dir()?.join(path) };
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
     let name = absolute.file_name().ok_or("output must have a file name")?;
-    let parent = absolute.parent().ok_or("output must have a parent directory")?;
+    let parent = absolute
+        .parent()
+        .ok_or("output must have a parent directory")?;
     fs::create_dir_all(parent)?;
     Ok(parent.canonicalize()?.join(name))
 }
@@ -16,10 +26,16 @@ fn ensure_regular_destination(path: &Path, force: bool) -> Result<()> {
     match fs::symlink_metadata(path) {
         Ok(meta) => {
             if meta.file_type().is_symlink() || !meta.is_file() {
-                return Err(format!("output must not be a symlink or a directory: {}", path.display()).into());
+                return Err(format!(
+                    "output must not be a symlink or a directory: {}",
+                    path.display()
+                )
+                .into());
             }
             if !force {
-                return Err(format!("output already exists (use --force): {}", path.display()).into());
+                return Err(
+                    format!("output already exists (use --force): {}", path.display()).into(),
+                );
             }
         }
         Err(err) if err.kind() == io::ErrorKind::NotFound => {}
@@ -35,7 +51,12 @@ pub struct OutputTargets {
 }
 
 impl OutputTargets {
-    pub fn prepare(transcript: &Path, audio: Option<&Path>, force: bool, protected: &[&Path]) -> Result<Self> {
+    pub fn prepare(
+        transcript: &Path,
+        audio: Option<&Path>,
+        force: bool,
+        protected: &[&Path],
+    ) -> Result<Self> {
         let transcript = normalized_target(transcript)?;
         let audio = audio.map(normalized_target).transpose()?;
         if audio.as_deref() == Some(transcript.as_path()) {
@@ -43,13 +64,20 @@ impl OutputTargets {
         }
         for target in std::iter::once(transcript.as_path()).chain(audio.as_deref()) {
             for protected_file in protected {
-                if protected_file.canonicalize().is_ok_and(|real| real == target) {
+                if protected_file
+                    .canonicalize()
+                    .is_ok_and(|real| real == target)
+                {
                     return Err("an output would overwrite a protected input/model".into());
                 }
             }
             ensure_regular_destination(target, force)?;
         }
-        Ok(Self { transcript, audio, force })
+        Ok(Self {
+            transcript,
+            audio,
+            force,
+        })
     }
 }
 
@@ -81,14 +109,14 @@ fn publish(temp: NamedTempFile, target: &Path, force: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn write_outputs(
-    rendered: &[u8],
-    wav: &Path,
-    targets: &OutputTargets,
-) -> Result<()> {
+pub fn write_outputs(rendered: &[u8], wav: &Path, targets: &OutputTargets) -> Result<()> {
     // Stage *both* before publishing either: errors during copy leave old results intact.
     let staged_transcript = stage_bytes(&targets.transcript, rendered)?;
-    let staged_audio = targets.audio.as_ref().map(|p| stage_file(p, wav)).transpose()?;
+    let staged_audio = targets
+        .audio
+        .as_ref()
+        .map(|p| stage_file(p, wav))
+        .transpose()?;
     // Publishing two files cannot be a filesystem-wide atomic transaction.
     publish(staged_transcript, &targets.transcript, targets.force)?;
     if let (Some(audio_target), Some(temp_audio)) = (&targets.audio, staged_audio) {
@@ -154,6 +182,4 @@ mod tests {
         assert!(stage_file(&out, &temp.path().join("missing.wav")).is_err());
         assert_eq!(fs::read_to_string(out).unwrap(), "old");
     }
-
-
 }

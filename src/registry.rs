@@ -10,23 +10,36 @@ use crate::{
     transcription::{Transcriber, WhisperCppCli},
     Result,
 };
-use std::{path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 
-pub enum SelectedAcquisition { Auto { remote: YtDlp }, Local(LocalAcquisition), Remote(YtDlp) }
+pub enum SelectedAcquisition {
+    Auto { remote: YtDlp },
+    Local(LocalAcquisition),
+    Remote(YtDlp),
+}
 impl Acquisition for SelectedAcquisition {
     fn acquire(&self, source: &Source, scratch: &Path) -> Result<PathBuf> {
         match (self, source) {
-            (Self::Auto { .. }, Source::Local(_)) | (Self::Local(_), Source::Local(_)) =>
-                LocalAcquisition.acquire(source, scratch),
-            (Self::Auto { remote }, Source::Url(_)) | (Self::Remote(remote), Source::Url(_)) =>
-                remote.acquire(source, scratch),
-            (Self::Local(_), Source::Url(_)) => Err("local acquisition backend cannot accept URLs".into()),
-            (Self::Remote(_), Source::Local(_)) => Err("yt-dlp acquisition backend requires an URL".into()),
+            (Self::Auto { .. }, Source::Local(_)) | (Self::Local(_), Source::Local(_)) => {
+                LocalAcquisition.acquire(source, scratch)
+            }
+            (Self::Auto { remote }, Source::Url(_)) | (Self::Remote(remote), Source::Url(_)) => {
+                remote.acquire(source, scratch)
+            }
+            (Self::Local(_), Source::Url(_)) => {
+                Err("local acquisition backend cannot accept URLs".into())
+            }
+            (Self::Remote(_), Source::Local(_)) => {
+                Err("yt-dlp acquisition backend requires an URL".into())
+            }
         }
     }
 }
 
-pub enum SelectedAudio { Ffmpeg(Ffmpeg), WavPcm16(WavPcm16) }
+pub enum SelectedAudio {
+    Ffmpeg(Ffmpeg),
+    WavPcm16(WavPcm16),
+}
 impl AudioDecoder for SelectedAudio {
     fn normalize(&self, input: &Path, output: &Path) -> Result<()> {
         match self {
@@ -36,28 +49,59 @@ impl AudioDecoder for SelectedAudio {
     }
 }
 
-pub enum SelectedTranscriber { WhisperCpp(WhisperCppCli) }
+pub enum SelectedTranscriber {
+    WhisperCpp(WhisperCppCli),
+}
 impl Transcriber for SelectedTranscriber {
-    fn id(&self) -> &'static str { match self { Self::WhisperCpp(v) => v.id() } }
-    fn preflight(&self) -> Result<()> { match self { Self::WhisperCpp(v) => v.preflight() } }
-    fn protected_paths(&self) -> Vec<&Path> { match self { Self::WhisperCpp(v) => v.protected_paths() } }
+    fn id(&self) -> &'static str {
+        match self {
+            Self::WhisperCpp(v) => v.id(),
+        }
+    }
+    fn preflight(&self) -> Result<()> {
+        match self {
+            Self::WhisperCpp(v) => v.preflight(),
+        }
+    }
+    fn protected_paths(&self) -> Vec<&Path> {
+        match self {
+            Self::WhisperCpp(v) => v.protected_paths(),
+        }
+    }
     fn transcribe(&self, audio: &Path, language: &str, scratch: &Path) -> Result<Transcript> {
-        match self { Self::WhisperCpp(v) => v.transcribe(audio, language, scratch) }
+        match self {
+            Self::WhisperCpp(v) => v.transcribe(audio, language, scratch),
+        }
     }
 }
 
-pub enum SelectedExporter { Text(PlainText), Json(Json) }
+pub enum SelectedExporter {
+    Text(PlainText),
+    Json(Json),
+}
 impl Exporter for SelectedExporter {
-    fn id(&self) -> &'static str { match self { Self::Text(v) => v.id(), Self::Json(v) => v.id() } }
+    fn id(&self) -> &'static str {
+        match self {
+            Self::Text(v) => v.id(),
+            Self::Json(v) => v.id(),
+        }
+    }
     fn extension(&self) -> &'static str {
-        match self { Self::Text(v) => v.extension(), Self::Json(v) => v.extension() }
+        match self {
+            Self::Text(v) => v.extension(),
+            Self::Json(v) => v.extension(),
+        }
     }
     fn render(&self, t: &Transcript) -> Result<Vec<u8>> {
-        match self { Self::Text(v) => v.render(t), Self::Json(v) => v.render(t) }
+        match self {
+            Self::Text(v) => v.render(t),
+            Self::Json(v) => v.render(t),
+        }
     }
 }
 
-pub type RuntimePipeline = Pipeline<SelectedAcquisition, SelectedAudio, SelectedTranscriber, SelectedExporter>;
+pub type RuntimePipeline =
+    Pipeline<SelectedAcquisition, SelectedAudio, SelectedTranscriber, SelectedExporter>;
 
 pub fn validate_source(mode: SourceBackend, source: &Source) -> Result<&'static str> {
     match (mode, source) {
@@ -69,7 +113,9 @@ pub fn validate_source(mode: SourceBackend, source: &Source) -> Result<&'static 
 
 pub fn build(config: &Config) -> Result<RuntimePipeline> {
     let profile = &config.profile.default;
-    let remote = || YtDlp { executable: config.backends.yt_dlp.binary.clone().into_os_string() };
+    let remote = || YtDlp {
+        executable: config.backends.yt_dlp.binary.clone().into_os_string(),
+    };
     let acquisition = match profile.source {
         SourceBackend::Auto => SelectedAcquisition::Auto { remote: remote() },
         SourceBackend::Local => SelectedAcquisition::Local(LocalAcquisition),
@@ -83,17 +129,28 @@ pub fn build(config: &Config) -> Result<RuntimePipeline> {
     };
     let transcriber = match profile.transcriber {
         TranscriptionBackend::WhisperCpp => SelectedTranscriber::WhisperCpp(WhisperCppCli {
-            executable: config.backends.whisper_cpp.binary.clone()
-                .unwrap_or_else(|| PathBuf::from("whisper-cli")).into_os_string(),
-            model: config.backends.whisper_cpp.model.clone()
-                .ok_or("whisper_cpp requires a model: set [backends.whisper_cpp].model or --model")?,
+            executable: config
+                .backends
+                .whisper_cpp
+                .binary
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("whisper-cli"))
+                .into_os_string(),
+            model: config.backends.whisper_cpp.model.clone().ok_or(
+                "whisper_cpp requires a model: set [backends.whisper_cpp].model or --model",
+            )?,
         }),
     };
     let exporter = match profile.exporter {
         ExportBackend::Txt => SelectedExporter::Text(PlainText),
         ExportBackend::Json => SelectedExporter::Json(Json),
     };
-    Ok(Pipeline { acquisition, decoder, transcriber, exporter })
+    Ok(Pipeline {
+        acquisition,
+        decoder,
+        transcriber,
+        exporter,
+    })
 }
 
 #[cfg(test)]
@@ -101,9 +158,16 @@ mod tests {
     use super::*;
     #[test]
     fn explicit_source_mismatches_fail_early() {
-        assert!(validate_source(SourceBackend::Local, &Source::Url("https://example.org".into())).is_err());
+        assert!(validate_source(
+            SourceBackend::Local,
+            &Source::Url("https://example.org".into())
+        )
+        .is_err());
         assert!(validate_source(SourceBackend::YtDlp, &Source::Local("file.wav".into())).is_err());
-        assert_eq!(validate_source(SourceBackend::Auto, &Source::Local("file.wav".into())).unwrap(), "local");
+        assert_eq!(
+            validate_source(SourceBackend::Auto, &Source::Local("file.wav".into())).unwrap(),
+            "local"
+        );
     }
     #[test]
     fn registry_selects_audio_and_exporter_without_changing_pipeline() {

@@ -64,9 +64,18 @@ mod tests {
 
     #[test]
     fn only_http_schemes_are_urls() {
-        assert!(matches!(Source::parse("https://example.org/a"), Source::Url(_)));
-        assert!(matches!(Source::parse("http://example.org/a"), Source::Url(_)));
-        assert!(matches!(Source::parse("file:///tmp/a.mp4"), Source::Local(_)));
+        assert!(matches!(
+            Source::parse("https://example.org/a"),
+            Source::Url(_)
+        ));
+        assert!(matches!(
+            Source::parse("http://example.org/a"),
+            Source::Url(_)
+        ));
+        assert!(matches!(
+            Source::parse("file:///tmp/a.mp4"),
+            Source::Local(_)
+        ));
         assert!(matches!(Source::parse("video.mp4"), Source::Local(_)));
     }
 

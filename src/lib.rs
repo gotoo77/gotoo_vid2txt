@@ -13,5 +13,6 @@ pub mod output;
 pub mod pipeline;
 pub mod registry;
 pub mod transcription;
+pub mod youtube_captions;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;

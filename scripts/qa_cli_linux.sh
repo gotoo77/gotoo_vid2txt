@@ -73,7 +73,7 @@ run "$root/video.mp4" "${common[@]}" --output "$root/local.txt" --audio-out "$ro
 assert_equals "$root/local.txt" 'Bonjour de la simulation.' 'local transcription'
 assert_equals "$root/audio.wav" 'WAV test' 'local WAV'
 
-run 'https://www.youtube.com/shorts/QoPPlTBY4ls' "${common[@]}" --exporter json --output "$root/remote.json"
+run 'https://www.youtube.com/shorts/QoPPlTBY4ls' "${common[@]}" --transcript-source whisper --exporter json --output "$root/remote.json"
 python3 - "$root/remote.json" <<'PY'
 import json, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))

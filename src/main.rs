@@ -1,7 +1,10 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use gotoo_vid2txt::{
     config::{AudioBackend, Config, ExportBackend, Overrides, SourceBackend, TranscriptionBackend},
     domain::{Job, Source},
+    export::{Exporter, Json, PlainText},
+    output::{write_transcript, OutputTargets},
+    youtube_captions::{is_youtube_url, try_transcript},
     pipeline::StageTimings,
     registry::{build, validate_source},
     Result,
@@ -9,6 +12,7 @@ use gotoo_vid2txt::{
 use std::{
     path::{Path, PathBuf},
     process::{self, Command},
+    time::Instant,
 };
 
 #[derive(Parser)]
@@ -84,6 +88,13 @@ struct DoctorArgs {
     input: Option<String>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum TranscriptSource {
+    Auto,
+    Youtube,
+    Whisper,
+}
+
 #[derive(Args)]
 struct TranscribeArgs {
     /// Local media file or HTTP(S) URL.
@@ -94,6 +105,9 @@ struct TranscribeArgs {
     output: Option<PathBuf>,
     #[arg(long, default_value = "auto")]
     language: String,
+    /// Preferred transcription source: auto (captions first), youtube or whisper.
+    #[arg(long, value_enum, default_value_t = TranscriptSource::Auto)]
+    transcript_source: TranscriptSource,
     #[arg(long)]
     audio_out: Option<PathBuf>,
     #[arg(long)]
@@ -198,6 +212,48 @@ fn transcribe(args: TranscribeArgs) -> Result<()> {
         .unwrap_or_else(|| output_name(&source, p.exporter.extension()));
     if args.dry_run {
         return print_plan(&config, &source, &output, args.audio_out.as_deref());
+    }
+    if args.language.trim().is_empty() || args.language.starts_with('-') {
+        return Err("invalid language".into());
+    }
+    if args.transcript_source == TranscriptSource::Youtube
+        && (!matches!(&source, Source::Url(_))
+            || !is_youtube_url(&args.input)
+            || args.audio_out.is_some())
+    {
+        return Err("--transcript-source youtube requires a YouTube URL without --audio-out".into());
+    }
+    let captions_first = args.transcript_source != TranscriptSource::Whisper
+        && args.audio_out.is_none()
+        && matches!(&source, Source::Url(_))
+        && is_youtube_url(&args.input);
+    if captions_first {
+        // Preflight output safety before any external command, even with no model.
+        let protected: Vec<&Path> = config.backends.whisper_cpp.model.as_deref().into_iter().collect();
+        let targets = OutputTargets::prepare(&output, None, args.force, &protected)?;
+        let started = Instant::now();
+        if let Some(transcript) = try_transcript(
+            &config.backends.yt_dlp.binary,
+            &args.input,
+            &args.language,
+        )? {
+            let bytes = match p.exporter {
+                ExportBackend::Txt => PlainText.render(&transcript)?,
+                ExportBackend::Json => Json.render(&transcript)?,
+            };
+            write_transcript(&bytes, &targets)?;
+            eprintln!(
+                "Completed: {} characters via {} in {:?} (Whisper not used)",
+                transcript.text.chars().count(),
+                transcript.backend,
+                started.elapsed()
+            );
+            return Ok(());
+        }
+        if args.transcript_source == TranscriptSource::Youtube {
+            return Err("No matching YouTube captions available".into());
+        }
+        eprintln!("No matching YouTube captions: falling back to Whisper");
     }
     let job = Job {
         source,

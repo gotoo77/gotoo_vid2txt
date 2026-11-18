@@ -30,6 +30,34 @@ cargo build --release
   --model ./models/ggml-base.bin --exporter json --output short.json
 ```
 
+## Sous-titres YouTube prioritaires
+
+Les URL YouTube utilisent désormais les sous-titres existants avant Whisper. Priorité :
+pistes manuelles dans la langue demandée, puis pistes automatiques. Si aucune piste
+adaptée n'est présente, le pipeline de transcription audio existant prend le relais.
+Une erreur réseau, une piste malformée ou un format non pris en charge fait échouer
+l'opération au lieu de masquer le problème. Le format de sous-titres initialement
+pris en charge est `json3`.
+
+```bash
+# Sans modèle ni exécutable Whisper lorsque des sous-titres sont accessibles.
+./target/release/gotoo-vid2txt transcribe \
+  'https://www.youtube.com/shorts/VIDEO_ID' \
+  --yt-dlp-bin "$HOME/.local/bin/yt-dlp-gotoo" \
+  --language fr --output captions.txt
+
+# Forcer uniquement les sous-titres ou forcer l'inférence Whisper.
+# --transcript-source youtube
+# --transcript-source whisper
+```
+
+En JSON, le champ `backend` distingue `youtube-manual-captions`,
+`youtube-auto-captions` et `whisper-cpp-cli`. Les sous-titres automatiques
+peuvent être inexacts. Si `--audio-out` est demandé, le mode auto utilise
+Whisper afin de conserver l'export audio demandé. Le mode YouTube forcé
+refuse `--audio-out`. Les médias locaux et autres URL conservent leur pipeline
+habituel. Le préflight `doctor` reste pour l'instant celui du pipeline Whisper.
+
 ## Sélection des modules
 
 `--config` charge explicitement un TOML. Sans ce paramètre, les valeurs par défaut compilées s'appliquent. Les options CLI gagnent sur le TOML, qui gagne sur les valeurs par défaut.

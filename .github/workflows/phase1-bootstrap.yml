@@ -1,0 +1,50 @@
+name: Temporary phase-1 Rust validation bootstrap
+
+on:
+  push:
+    branches:
+      - fix/phase1-quality-gates
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Produce deterministic formatting and dependency lockfile
+        run: |
+          cargo fmt --all
+          cargo generate-lockfile
+      - name: Mandatory formatting gate
+        run: cargo fmt --all -- --check
+      - name: Mandatory type checking
+        run: cargo check --locked --all-targets
+      - name: Mandatory tests
+        run: cargo test --locked --all-targets
+      - name: Mandatory Clippy with warnings denied
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - name: Mandatory documentation build
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --no-deps
+      - name: Mandatory mocked integration tests
+        run: |
+          cargo build --locked --release
+          bash scripts/qa_cli_linux.sh "$(pwd)/target/release/gotoo-vid2txt"
+      - name: Commit formatted and validated files to the isolated branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock src benches tests
+          if ! git diff --cached --quiet; then
+            git commit -m "style: apply rustfmt and commit Cargo.lock after quality gates"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

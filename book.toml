@@ -1,0 +1,11 @@
+[book]
+title = "gotoo_vid2txt - Manuel technique"
+authors = ["gotoo_vid2txt contributors"]
+language = "fr"
+src = "docs"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "navy"

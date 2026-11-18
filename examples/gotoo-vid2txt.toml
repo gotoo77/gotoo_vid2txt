@@ -1,0 +1,17 @@
+# Explicit configuration. By default, the CLI uses its built-in defaults.
+# This example deliberately specifies only the values worth changing.
+[profile.default]
+source = "auto"             # auto | local | yt_dlp
+audio = "ffmpeg"            # ffmpeg | wav_pcm16
+transcriber = "whisper_cpp" # presently only executable STT adapter
+exporter = "txt"            # txt | json
+
+[backends.yt_dlp]
+binary = "yt-dlp"
+
+[backends.ffmpeg]
+binary = "ffmpeg"
+
+[backends.whisper_cpp]
+binary = "whisper-cli"
+model = "models/ggml-base.bin"

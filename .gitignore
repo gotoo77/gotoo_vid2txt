@@ -1,0 +1,11 @@
+/target/
+/book/
+/site/
+*.wav
+*.mp4
+*.mkv
+*.webm
+*.gguf
+*.bin
+*.log
+!tests/fixtures/*.wav

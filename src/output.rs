@@ -109,6 +109,15 @@ fn publish(temp: NamedTempFile, target: &Path, force: bool) -> Result<()> {
     Ok(())
 }
 
+/// Publish a transcript without requiring a media file or writing audio.
+pub fn write_transcript(rendered: &[u8], targets: &OutputTargets) -> Result<()> {
+    if targets.audio.is_some() {
+        return Err("caption-only path does not provide an audio file".into());
+    }
+    let staged = stage_bytes(&targets.transcript, rendered)?;
+    publish(staged, &targets.transcript, targets.force)
+}
+
 pub fn write_outputs(rendered: &[u8], wav: &Path, targets: &OutputTargets) -> Result<()> {
     // Stage *both* before publishing either: errors during copy leave old results intact.
     let staged_transcript = stage_bytes(&targets.transcript, rendered)?;

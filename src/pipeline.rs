@@ -8,7 +8,35 @@ use crate::{
     transcription::Transcriber,
     Result,
 };
-use std::{path::Path, time::{Duration, Instant}};
+use std::{
+    path::Path,
+    time::{Duration, Instant},
+};
+
+// Do not rely on the caller's umask: tempfile defaults to 0o777 for directories.
+fn private_workspace() -> Result<tempfile::TempDir> {
+    let mut builder = tempfile::Builder::new();
+    builder.prefix("gotoo-vid2txt-");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(0o700));
+    }
+    Ok(builder.tempdir()?)
+}
+
+#[cfg(all(test, unix))]
+mod workspace_tests {
+    use super::private_workspace;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn scratch_is_never_accessible_to_group_or_others() {
+        let workspace = private_workspace().unwrap();
+        let mode = workspace.path().metadata().unwrap().permissions().mode();
+        assert_eq!(mode & 0o077, 0);
+    }
+}
 
 #[derive(Debug)]
 pub struct StageTimings {
@@ -55,7 +83,7 @@ impl<A: Acquisition, D: AudioDecoder, T: Transcriber, E: Exporter> Pipeline<A, D
         )?;
 
         let started = Instant::now();
-        let scratch = tempfile::Builder::new().prefix("gotoo-vid2txt-").tempdir()?;
+        let scratch = private_workspace()?;
         let start = Instant::now();
         let input = self.acquisition.acquire(&job.source, scratch.path())?;
         let acquisition = start.elapsed();
@@ -66,9 +94,9 @@ impl<A: Acquisition, D: AudioDecoder, T: Transcriber, E: Exporter> Pipeline<A, D
         let decoding = start.elapsed();
 
         let start = Instant::now();
-        let transcript = self.transcriber.transcribe(
-            &wav, &job.language, scratch.path(),
-        )?;
+        let transcript = self
+            .transcriber
+            .transcribe(&wav, &job.language, scratch.path())?;
         let transcription = start.elapsed();
         if transcript.schema_version != 1 || transcript.backend != self.transcriber.id() {
             return Err("transcriber returned an incompatible result".into());

@@ -9,16 +9,28 @@ pub trait Exporter: Send + Sync {
 
 pub struct PlainText;
 impl Exporter for PlainText {
-    fn id(&self) -> &'static str { "txt" }
-    fn extension(&self) -> &'static str { "txt" }
-    fn render(&self, transcript: &Transcript) -> Result<Vec<u8>> { Ok(transcript.text.as_bytes().to_vec()) }
+    fn id(&self) -> &'static str {
+        "txt"
+    }
+    fn extension(&self) -> &'static str {
+        "txt"
+    }
+    fn render(&self, transcript: &Transcript) -> Result<Vec<u8>> {
+        Ok(transcript.text.as_bytes().to_vec())
+    }
 }
 
 pub struct Json;
 impl Exporter for Json {
-    fn id(&self) -> &'static str { "json" }
-    fn extension(&self) -> &'static str { "json" }
-    fn render(&self, transcript: &Transcript) -> Result<Vec<u8>> { Ok(serde_json::to_vec_pretty(transcript)?) }
+    fn id(&self) -> &'static str {
+        "json"
+    }
+    fn extension(&self) -> &'static str {
+        "json"
+    }
+    fn render(&self, transcript: &Transcript) -> Result<Vec<u8>> {
+        Ok(serde_json::to_vec_pretty(transcript)?)
+    }
 }
 
 #[cfg(test)]

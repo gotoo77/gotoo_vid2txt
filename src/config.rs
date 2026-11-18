@@ -3,27 +3,42 @@
 use crate::Result;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 #[clap(rename_all = "kebab-case")]
-pub enum SourceBackend { Auto, Local, YtDlp }
+pub enum SourceBackend {
+    Auto,
+    Local,
+    YtDlp,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 #[clap(rename_all = "kebab-case")]
-pub enum AudioBackend { Ffmpeg, WavPcm16 }
+pub enum AudioBackend {
+    Ffmpeg,
+    WavPcm16,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 #[clap(rename_all = "kebab-case")]
-pub enum TranscriptionBackend { WhisperCpp }
+pub enum TranscriptionBackend {
+    WhisperCpp,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 #[clap(rename_all = "kebab-case")]
-pub enum ExportBackend { Txt, Json }
+pub enum ExportBackend {
+    Txt,
+    Json,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -35,19 +50,33 @@ pub struct Profile {
 }
 impl Default for Profile {
     fn default() -> Self {
-        Self { source: SourceBackend::Auto, audio: AudioBackend::Ffmpeg,
-            transcriber: TranscriptionBackend::WhisperCpp, exporter: ExportBackend::Txt }
+        Self {
+            source: SourceBackend::Auto,
+            audio: AudioBackend::Ffmpeg,
+            transcriber: TranscriptionBackend::WhisperCpp,
+            exporter: ExportBackend::Txt,
+        }
     }
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct Profiles { pub default: Profile }
+pub struct Profiles {
+    pub default: Profile,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct Executable { pub binary: PathBuf }
-impl Executable { fn named(binary: &str) -> Self { Self { binary: PathBuf::from(binary) } } }
+pub struct Executable {
+    pub binary: PathBuf,
+}
+impl Executable {
+    fn named(binary: &str) -> Self {
+        Self {
+            binary: PathBuf::from(binary),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -95,26 +124,47 @@ pub struct Overrides {
 
 impl Config {
     pub fn load(path: Option<&Path>) -> Result<Self> {
-        let Some(path) = path else { return Ok(Self::default()); };
+        let Some(path) = path else {
+            return Ok(Self::default());
+        };
         let contents = fs::read_to_string(path)?;
         Ok(toml::from_str(&contents)?)
     }
     pub fn apply(&mut self, over: Overrides) {
         let p = &mut self.profile.default;
-        if let Some(v) = over.source { p.source = v; }
-        if let Some(v) = over.audio { p.audio = v; }
-        if let Some(v) = over.transcriber { p.transcriber = v; }
-        if let Some(v) = over.exporter { p.exporter = v; }
-        if let Some(v) = over.yt_dlp_bin { self.backends.yt_dlp.binary = v; }
-        if let Some(v) = over.ffmpeg_bin { self.backends.ffmpeg.binary = v; }
-        if let Some(v) = over.whisper_bin { self.backends.whisper_cpp.binary = Some(v); }
-        if let Some(v) = over.model { self.backends.whisper_cpp.model = Some(v); }
+        if let Some(v) = over.source {
+            p.source = v;
+        }
+        if let Some(v) = over.audio {
+            p.audio = v;
+        }
+        if let Some(v) = over.transcriber {
+            p.transcriber = v;
+        }
+        if let Some(v) = over.exporter {
+            p.exporter = v;
+        }
+        if let Some(v) = over.yt_dlp_bin {
+            self.backends.yt_dlp.binary = v;
+        }
+        if let Some(v) = over.ffmpeg_bin {
+            self.backends.ffmpeg.binary = v;
+        }
+        if let Some(v) = over.whisper_bin {
+            self.backends.whisper_cpp.binary = Some(v);
+        }
+        if let Some(v) = over.model {
+            self.backends.whisper_cpp.model = Some(v);
+        }
     }
 }
 
 impl ExportBackend {
     pub fn extension(self) -> &'static str {
-        match self { Self::Txt => "txt", Self::Json => "json" }
+        match self {
+            Self::Txt => "txt",
+            Self::Json => "json",
+        }
     }
 }
 
@@ -130,16 +180,22 @@ mod tests {
     }
     #[test]
     fn parser_accepts_nested_backend_settings() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
             [profile.default]
             source = "local"
             audio = "wav_pcm16"
             exporter = "json"
             [backends.whisper_cpp]
             model = "models/base.bin"
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         assert_eq!(config.profile.default.audio, AudioBackend::WavPcm16);
-        assert_eq!(config.backends.whisper_cpp.model.unwrap(), PathBuf::from("models/base.bin"));
+        assert_eq!(
+            config.backends.whisper_cpp.model.unwrap(),
+            PathBuf::from("models/base.bin")
+        );
     }
     #[test]
     fn invalid_backend_and_typos_fail_closed() {
@@ -149,8 +205,12 @@ mod tests {
     }
     #[test]
     fn cli_overrides_selected_values_only() {
-        let mut c: Config = toml::from_str("[profile.default]\nsource='local'\nexporter='json'").unwrap();
-        c.apply(Overrides { audio: Some(AudioBackend::WavPcm16), ..Overrides::default() });
+        let mut c: Config =
+            toml::from_str("[profile.default]\nsource='local'\nexporter='json'").unwrap();
+        c.apply(Overrides {
+            audio: Some(AudioBackend::WavPcm16),
+            ..Overrides::default()
+        });
         assert_eq!(c.profile.default.source, SourceBackend::Local);
         assert_eq!(c.profile.default.audio, AudioBackend::WavPcm16);
         assert_eq!(c.profile.default.exporter, ExportBackend::Json);

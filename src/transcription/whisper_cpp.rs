@@ -1,6 +1,11 @@
 use super::Transcriber;
 use crate::{domain::Transcript, Result};
-use std::{ffi::OsString, fs, path::{Path, PathBuf}, process::Command};
+use std::{
+    ffi::OsString,
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 pub struct WhisperCppCli {
     pub executable: OsString,
@@ -11,19 +16,24 @@ impl WhisperCppCli {
     fn command(&self, audio: &Path, language: &str, scratch: &Path) -> Command {
         let prefix = scratch.join("transcript");
         let mut cmd = Command::new(&self.executable);
-        cmd
-            .arg("--model").arg(&self.model)
-            .arg("--file").arg(audio)
-            .arg("--language").arg(language)
+        cmd.arg("--model")
+            .arg(&self.model)
+            .arg("--file")
+            .arg(audio)
+            .arg("--language")
+            .arg(language)
             .arg("--output-txt")
-            .arg("--output-file").arg(prefix)
+            .arg("--output-file")
+            .arg(prefix)
             .arg("--no-timestamps");
         cmd
     }
 }
 
 impl Transcriber for WhisperCppCli {
-    fn id(&self) -> &'static str { "whisper-cpp-cli" }
+    fn id(&self) -> &'static str {
+        "whisper-cpp-cli"
+    }
 
     fn preflight(&self) -> Result<()> {
         if !self.model.is_file() {
@@ -32,7 +42,9 @@ impl Transcriber for WhisperCppCli {
         Ok(())
     }
 
-    fn protected_paths(&self) -> Vec<&Path> { vec![self.model.as_path()] }
+    fn protected_paths(&self) -> Vec<&Path> {
+        vec![self.model.as_path()]
+    }
 
     fn transcribe(&self, audio: &Path, language: &str, scratch: &Path) -> Result<Transcript> {
         let status = self.command(audio, language, scratch).status()?;
@@ -47,7 +59,9 @@ impl Transcriber for WhisperCppCli {
             text,
         );
         if transcript.text.trim().is_empty() {
-            transcript.warnings.push("empty transcript (possibly silence)".to_owned());
+            transcript
+                .warnings
+                .push("empty transcript (possibly silence)".to_owned());
         }
         Ok(transcript)
     }
@@ -58,11 +72,21 @@ mod tests {
     use super::*;
     #[test]
     fn whisper_arguments_include_model_and_language() {
-        let cmd = WhisperCppCli { executable: "whisper-cli".into(), model: "model.bin".into() }
-            .command(Path::new("audio.wav"), "fr", Path::new("/tmp"));
-        let args: Vec<_> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
-        assert!(args.windows(2).any(|a| a[0] == "--model" && a[1] == "model.bin"));
-        assert!(args.windows(2).any(|a| a[0] == "--language" && a[1] == "fr"));
+        let cmd = WhisperCppCli {
+            executable: "whisper-cli".into(),
+            model: "model.bin".into(),
+        }
+        .command(Path::new("audio.wav"), "fr", Path::new("/tmp"));
+        let args: Vec<_> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().to_string())
+            .collect();
+        assert!(args
+            .windows(2)
+            .any(|a| a[0] == "--model" && a[1] == "model.bin"));
+        assert!(args
+            .windows(2)
+            .any(|a| a[0] == "--language" && a[1] == "fr"));
         assert!(args.contains(&"--output-txt".into()));
     }
 }

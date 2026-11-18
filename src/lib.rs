@@ -7,11 +7,11 @@
 pub mod acquisition;
 pub mod audio;
 pub mod config;
-pub mod export;
-pub mod registry;
 pub mod domain;
+pub mod export;
 pub mod output;
 pub mod pipeline;
+pub mod registry;
 pub mod transcription;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;

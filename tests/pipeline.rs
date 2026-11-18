@@ -7,16 +7,26 @@ use gotoo_vid2txt::{
     transcription::Transcriber,
     Result,
 };
-use std::{fs, path::{Path, PathBuf}, sync::{Arc, Mutex}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
 
 #[derive(Default)]
 struct Events(Arc<Mutex<Vec<&'static str>>>);
 impl Events {
-    fn record(&self, event: &'static str) { self.0.lock().unwrap().push(event); }
-    fn values(&self) -> Vec<&'static str> { self.0.lock().unwrap().clone() }
+    fn record(&self, event: &'static str) {
+        self.0.lock().unwrap().push(event);
+    }
+    fn values(&self) -> Vec<&'static str> {
+        self.0.lock().unwrap().clone()
+    }
 }
 impl Clone for Events {
-    fn clone(&self) -> Self { Self(Arc::clone(&self.0)) }
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
 }
 
 struct FakeAcquisition(Events);
@@ -38,12 +48,22 @@ impl AudioDecoder for FakeDecoder {
 }
 struct FakeTranscriber(Events, bool, PathBuf);
 impl Transcriber for FakeTranscriber {
-    fn id(&self) -> &'static str { "fake" }
-    fn protected_paths(&self) -> Vec<&Path> { vec![self.2.as_path()] }
+    fn id(&self) -> &'static str {
+        "fake"
+    }
+    fn protected_paths(&self) -> Vec<&Path> {
+        vec![self.2.as_path()]
+    }
     fn transcribe(&self, _: &Path, _: &str, _: &Path) -> Result<Transcript> {
         self.0.record("transcribe");
-        if self.1 { return Err("injected inference failure".into()); }
-        Ok(Transcript::new("fake", Some("fr".into()), "bonjour\n".into()))
+        if self.1 {
+            return Err("injected inference failure".into());
+        }
+        Ok(Transcript::new(
+            "fake",
+            Some("fr".into()),
+            "bonjour\n".into(),
+        ))
     }
 }
 
@@ -71,7 +91,8 @@ fn fake_pipeline_validates_stage_order_json_and_audio() {
     let report = pipeline.run(&job(dir.path())).unwrap();
     assert_eq!(events.values(), ["acquire", "decode", "transcribe"]);
     assert_eq!(report.transcript.text, "bonjour\n");
-    let result: serde_json::Value = serde_json::from_slice(&fs::read(dir.path().join("result.json")).unwrap()).unwrap();
+    let result: serde_json::Value =
+        serde_json::from_slice(&fs::read(dir.path().join("result.json")).unwrap()).unwrap();
     assert_eq!(result["schema_version"], 1);
     assert_eq!(fs::read(dir.path().join("audio.wav")).unwrap(), b"wav");
 }
@@ -92,8 +113,14 @@ fn transcription_failure_leaves_existing_outputs_intact() {
     let mut request = job(dir.path());
     request.force = true;
     assert!(pipeline.run(&request).is_err());
-    assert_eq!(fs::read_to_string(dir.path().join("result.json")).unwrap(), "old");
-    assert_eq!(fs::read_to_string(dir.path().join("audio.wav")).unwrap(), "oldwav");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("result.json")).unwrap(),
+        "old"
+    );
+    assert_eq!(
+        fs::read_to_string(dir.path().join("audio.wav")).unwrap(),
+        "oldwav"
+    );
 }
 
 #[test]
@@ -112,13 +139,17 @@ fn preflight_rejects_collision_before_acquisition() {
     request.force = true;
     assert!(pipeline.run(&request).is_err());
     assert!(events.values().is_empty());
-    assert_eq!(fs::read_to_string(dir.path().join("model.bin")).unwrap(), "model");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("model.bin")).unwrap(),
+        "model"
+    );
 }
-
 
 struct AlternativeTranscriber;
 impl Transcriber for AlternativeTranscriber {
-    fn id(&self) -> &'static str { "other-engine" }
+    fn id(&self) -> &'static str {
+        "other-engine"
+    }
     fn transcribe(&self, _: &Path, _: &str, _: &Path) -> Result<Transcript> {
         Ok(Transcript::new("other-engine", None, "different".into()))
     }
@@ -170,7 +201,9 @@ fn acquisition_failure_does_not_publish_anything() {
 fn backend_mismatch_is_rejected_before_publication() {
     struct BadBackend;
     impl Transcriber for BadBackend {
-        fn id(&self) -> &'static str { "declared" }
+        fn id(&self) -> &'static str {
+            "declared"
+        }
         fn transcribe(&self, _: &Path, _: &str, _: &Path) -> Result<Transcript> {
             Ok(Transcript::new("different", None, "invalid".into()))
         }
@@ -191,8 +224,12 @@ fn backend_mismatch_is_rejected_before_publication() {
 
 struct CustomExporter;
 impl Exporter for CustomExporter {
-    fn id(&self) -> &'static str { "custom" }
-    fn extension(&self) -> &'static str { "custom" }
+    fn id(&self) -> &'static str {
+        "custom"
+    }
+    fn extension(&self) -> &'static str {
+        "custom"
+    }
     fn render(&self, transcript: &Transcript) -> Result<Vec<u8>> {
         Ok(format!("backend={}\n", transcript.backend).into_bytes())
     }
@@ -211,14 +248,23 @@ fn exporter_can_be_substituted_without_pipeline_changes() {
     let mut request = job(dir.path());
     request.audio_output = None;
     pipeline.run(&request).unwrap();
-    assert_eq!(fs::read_to_string(request.output).unwrap(), "backend=other-engine\n");
+    assert_eq!(
+        fs::read_to_string(request.output).unwrap(),
+        "backend=other-engine\n"
+    );
 }
 
 struct FailingExporter;
 impl Exporter for FailingExporter {
-    fn id(&self) -> &'static str { "fail" }
-    fn extension(&self) -> &'static str { "txt" }
-    fn render(&self, _: &Transcript) -> Result<Vec<u8>> { Err("injected export failure".into()) }
+    fn id(&self) -> &'static str {
+        "fail"
+    }
+    fn extension(&self) -> &'static str {
+        "txt"
+    }
+    fn render(&self, _: &Transcript) -> Result<Vec<u8>> {
+        Err("injected export failure".into())
+    }
 }
 
 #[test]
@@ -237,5 +283,8 @@ fn export_failure_preserves_preexisting_outputs() {
     request.force = true;
     assert!(pipeline.run(&request).is_err());
     assert_eq!(fs::read_to_string(request.output).unwrap(), "old");
-    assert_eq!(fs::read_to_string(request.audio_output.unwrap()).unwrap(), "oldwav");
+    assert_eq!(
+        fs::read_to_string(request.audio_output.unwrap()).unwrap(),
+        "oldwav"
+    );
 }

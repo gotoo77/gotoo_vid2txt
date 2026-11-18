@@ -69,7 +69,7 @@ fn parse_json3(bytes: &[u8], kind: Kind, language: &str) -> Result<Transcript> {
         if line.is_empty() || line == previous { continue; }
         let remainder = line.strip_prefix(&previous)
             .filter(|s| s.starts_with(' ')).unwrap_or(&line);
-        let text = remainder.trim();
+        let text = remainder.trim().to_owned();
         previous = line;
         if text.is_empty() { continue; }
         let start = event.get("tStartMs").and_then(Value::as_u64).unwrap_or(0);
@@ -77,7 +77,7 @@ fn parse_json3(bytes: &[u8], kind: Kind, language: &str) -> Result<Transcript> {
         pieces.push(Segment {
             start_ms: start,
             end_ms: start.saturating_add(duration),
-            text: text.to_owned(),
+            text,
         });
     }
     if pieces.is_empty() { return Err("YouTube captions contain no usable text".into()); }

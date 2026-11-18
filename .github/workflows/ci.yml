@@ -37,6 +37,7 @@ jobs:
         run: |
           cargo build --locked --release
           bash scripts/qa_cli_linux.sh "$(pwd)/target/release/gotoo-vid2txt"
+          bash scripts/qa_captions_linux.sh "$(pwd)/target/release/gotoo-vid2txt"
 
   book:
     runs-on: ubuntu-latest
